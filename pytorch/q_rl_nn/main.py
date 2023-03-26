@@ -13,18 +13,18 @@ from test_games.ImaBust import ImaBust
 
 
 # model hyperparameters
-b_load_saved_agent = True            # Load previously trained agent
-batch_size = 1000                    # Random sample size from replay memory when optimizing policy
+b_load_saved_agent = False            # Load previously trained agent
+batch_size = 5000                    # Random sample size from replay memory when optimizing policy
 num_episodes = 300                   # Max episodes for training
 success_threshold = 20               # Metric to determine solved model and end training early i.e game wins
-state_size = 64                      # State size used for env and agent
+state_size = 25                      # State size used for env and agent
 hidden_layer_count = 1               # Number of hidden layers used in agent's models
 hidden_layer_size_ratio = 3          # Multiplier used to determin hidden later size based on state size
 loss_fn_option = nn.SmoothL1Loss     # Loss function used in agent's model optimization
-optimizer_option = torch.optim.AdamW # Optimizer used in agent's model optimization
-learning_rate = 1e-4                 # Optimizer's learning rate
+optimizer_option = torch.optim.Adam  # Optimizer used in agent's model optimization
+learning_rate = 1e-5                 # Optimizer's learning rate
 gamma = 0.99                         # Discount future action reward factor
-eps_decay = 0.9996                   # Decay rate of whether to choose a random action or learned action
+eps_decay = 0.9998                   # Decay rate of whether to choose a random action or learned action
 tau = 0.001                          # Soft update ratio from policy network to fixed target network
 
 

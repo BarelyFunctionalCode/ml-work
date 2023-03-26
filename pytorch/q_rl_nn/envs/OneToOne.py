@@ -47,9 +47,10 @@ class OneToOneEnv(gym.Env):
 
   # Step taken in agent training loop
   def step(self, action):
+    # Increment step count
+    self.steps += 1
+    
     # Apply action and get new observation set and other data
     obs, reward, terminated = self._apply_action(action)
 
-    # Increment step count
-    self.steps += 1
     return obs, reward, terminated, False

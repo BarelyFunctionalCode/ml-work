@@ -19,7 +19,8 @@ class ImaBust(object):
     self.restart()
 
   def restart(self):
-    self.state = np.full((self.state_1_d_size * self.state_1_d_size), 1)
+    self.state = np.full((self.state_1_d_size * self.state_1_d_size), 1, dtype=np.int64)
+    # self.state = np.random.randint(self.min_value, self.min_value + 3, (self.state_1_d_size * self.state_1_d_size))
 
   def apply_action(self, action=None):
     if action is not None:

@@ -93,7 +93,7 @@ class Agent(object):
     self.target_net.load_state_dict(self.policy_net.state_dict())
 
     # Initialize Replay Memory size
-    self.memory = ReplayMemory(5000)
+    self.memory = ReplayMemory(15000)
 
     # Initializing variables to contain plot graph metrics
     self.episode_env_success = []
@@ -108,7 +108,7 @@ class Agent(object):
   def _select_action(self, state, env):
     sample = random.random()
     
-    self.eps_threshold = max(self.eps_threshold * self.eps_decay, 0.01)
+    self.eps_threshold = max(self.eps_threshold * self.eps_decay, 0.05)
     if sample > self.eps_threshold:
       self.policy_net.eval()
       with torch.no_grad():
@@ -124,14 +124,14 @@ class Agent(object):
 
     # Gather metrics
     eps_t = torch.tensor(self.episode_eps, dtype=torch.float)
-    loss_t = torch.tensor(self.episode_loss, dtype=torch.float)
+    loss_t = torch.tensor(self.episode_loss, dtype=torch.float) / 4.0
     durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
     env_success_t = torch.tensor(self.episode_env_success, dtype=torch.float)
 
+    plt.clf()
     if show_result:
       plt.title('Result')
     else:
-      plt.clf()
       plt.title('Training...')
     plt.xlabel('Episode')
     plt.ylabel('EPS Threshold, Loss, Duration, Env Successes')

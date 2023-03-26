@@ -1,56 +1,38 @@
+import matplotlib.pyplot as plt
+import matplotlib
+import matplotlib.pyplot as plt
+
 import numpy as np
+import math
 
-from .OneToOne import OneToOneEnv
+# set up matplotlib
+is_ipython = 'inline' in matplotlib.get_backend()
+if is_ipython:
+  from IPython import display
+plt.ion()
 
-class ImaBustEnv(OneToOneEnv):
-  def __init__(self, obs_size, min_value, max_value, program_interface):
-    super().__init__(obs_size, min_value, max_value)
+class RewardSimulation(object):
 
-    # TODO: replace this with a window handle and utilities for keyboard/mouse inputs to the program
-    self.program_interface = program_interface
-
-    # Track win count
+  def __init__(self, obs_size, min_value, max_value):
+    self.obs_size = obs_size
+    self.min_value = min_value
+    self.max_value = max_value
+    self.steps = 0
     self.wins = 0
-  
-  # Restart the program upon env reset (on terminal state)
-  def _restart_program(self):
-    self.program_interface.restart()
 
-  # Apply selected action to the program
-  def _apply_action(self, action=None):
-    # Apply the desired action to the prgram and get new state
-    new_obs = self.program_interface.apply_action(action)
+    self.state = np.random.randint(self.min_value, self.min_value + 3, (self.obs_size))
 
-    # No action, just getting base state for resetting env
-    if action is None:
-      return new_obs, None, None
+  def apply_action(self, action):
+    self.state[action] += 1
+    self.steps += 1
 
-    # Setting initial terminal state
+    return self._generate_reward(action)
+
+  def _generate_reward(self, action):
+    new_obs = self.state
+
     terminated = False
 
-    # The more evenly you fill out the board, the higher the reward
-    # distrubution_incentive = float(np.interp(
-    #   np.mean(new_obs)**2,
-    #   (1,
-    #   self.max_value**2),
-    #   (0,
-    #   1)
-    # ))
-
-    # Selecting smaller values gives better reward
-    # action_reward_small_value_good_non_scaled = np.float32((self.max_value - new_obs[action]) + self.min_value)
-
-    # More steps you take, better reward
-    # max_steps_incentive_reward = np.sqrt(self.steps)
-
-    # Assigning reward, selecting smaller valued cells gives larger reward
-    # action_reward_small_value_good = np.float32(np.interp(
-    #   ((self.max_value - new_obs[action]) + self.min_value)**3, # Raw Reward
-    #   (self.min_value**3,       # Minimum possible raw reward
-    #   self.max_value**3),       # Maximum possible raw reward
-    #   (-1,                       # Minimum possible scaled reward
-    #   1)                        # Maximum possible scaled reward
-    # ))
 
     # Assigning reward, selecting smaller valued cells gives larger reward
     action_reward_small_value_good = (
@@ -92,18 +74,45 @@ class ImaBustEnv(OneToOneEnv):
 
     # Check win condition (if all cell values equal self.max_value)
     if np.array_equal(new_obs, np.full(self.obs_size, self.max_value)):
-      reward = 100.0
+      reward = 2.0
       terminated = True
       self.wins += 1
 
     # Check lose condition (selecting a cell already at max value)
     if new_obs[action] > self.max_value:
-      reward = -100.0
+      reward = -2.0
       terminated = True
 
-    # print(f"{self.steps=} {new_obs[action]=} {reward=} {action_reward_small_value_good=} {min_steps_incentive_reward_scaled=}")
-    return new_obs, reward, terminated
+    return reward, terminated
 
-  # Stop training if desired amount of wins have been achieved
-  def get_success_count(self):
-    return self.wins
+
+
+
+state_size = 25
+min_value = 1
+max_value = 8
+
+sim = RewardSimulation(state_size, min_value, max_value)
+
+results = []
+terminated = False
+while not terminated:
+  random_index = np.random.choice(np.arange(state_size)[sim.state < max_value])
+  if sim.state[random_index] == 8: continue
+
+  reward, terminated = sim.apply_action(random_index)
+  results.append(reward)
+
+
+plt.figure(1)
+plt.clf()
+plt.title('Result')
+plt.xlabel('Env Steps')
+plt.ylabel('Reward')
+plt.plot(results, label="Reward at Given Step")
+plt.pause(0.001)
+plt.legend(loc='upper left')
+if is_ipython:
+  display.display(plt.gcf())
+plt.ioff()
+plt.show()
