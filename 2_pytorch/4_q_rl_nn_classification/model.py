@@ -27,15 +27,12 @@ class CNN(nn.Module):
     self.fc1 = nn.Linear(self.conv_output_size, self.hidden_layer_size)
     self.fc2 = nn.Linear(self.hidden_layer_size, self.output_size)
 
-  def forward(self, x, random_action_batch=None):
+  def forward(self, x):
     x = F.relu(self.cnn1(x))
     x = self.flatten(x)
     x = F.relu(self.fc1(x))
     x = self.fc2(x)
     # x = F.log_softmax(x, dim=1)
-    # if random_action_batch is None:
-    #   random_action_batch = x
-    # x = x * random_action_batch
     return x
 
 # Used to create model with desired parameters

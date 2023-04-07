@@ -29,20 +29,20 @@ class ImaBustEnv(OneToOneEnv):
     # Setting initial terminal state
     terminated = False
 
-    # Assigning reward, selecting smaller valued cells gives larger reward
     # action_reward_small_value_good = (
-    #                                   (
-    #                                     (
-    #                                       (
-    #                                         1 -
-    #                                         ( # Get ratio of current value by max possible value
-    #                                           min((data["action_value"] - self.min_value) /
-    #                                           (self.max_value - self.min_value - 1), 1)
-    #                                         ) # Flip ratio
-    #                                       ) * 2 # Double it, and give it to the next person
-    #                                     ) - 1 # Scaled from -1 - 1 instead of 0 - 2
-    #                                   ) * (np.mean(new_obs_flattened) / (self.max_value - 1)) # Multiply by Average ratio
-    #                                 ) + (1 - (np.mean(new_obs_flattened) / (self.max_value - 1))) # For smaller values, add a portion of the Average ratio
+    #   (
+    #     (
+    #       (
+    #         1 -
+    #         ( # Get ratio of current value by max possible value
+    #           data["action_value"] /
+    #           self.max_value
+    #         ) # Flip ratio
+    #       ) - 0.5 # Scaled from -0.5 - 0.5 instead of 0 - 1
+    #     ) * 2 # Scaled from -1 - 1
+    #   ) * (np.mean(new_obs_flattened) / self.max_value) # Multiply by Average ratio
+    # ) + (1 - (np.mean(new_obs_flattened) / self.max_value)) # For smaller values, add a portion of the Average ratio
+
 
     action_reward_small_value_good = (
       (
@@ -54,20 +54,6 @@ class ImaBustEnv(OneToOneEnv):
       ) - 0.5 # Scaled from -0.5 - 0.5 instead of 0 - 1
     ) * 2 # Scaled from -1 - 1
 
-
-    # More steps you take, worse reward
-    # min_steps_incentive_reward_scaled = (
-    #                                       (
-    #                                         (
-    #                                           1 -
-    #                                           ( # Get ratio of current steps by max possible steps
-    #                                             min(self.steps /
-    #                                             ((self.obs_size_d1 ** 2) * (self.max_value - self.min_value)), 1)
-    #                                           ) # Flip ratio
-    #                                         ) ** (1. / 2) # Square Root it
-    #                                       ) * 2 # Double it, and give it to the next person
-    #                                     ) - 1 # Scaled from -1 - 1 instead of 0 - 2
-    
     min_steps_incentive_reward_scaled = (
       (
         (
@@ -75,7 +61,7 @@ class ImaBustEnv(OneToOneEnv):
           ( # Get ratio of current steps by max possible steps
             self.steps / # Current steps
             (
-              (self.obs_size_d1 ** 2) * (self.max_value - self.min_value) # Max possible steps
+              (self.obs_size_d1 ** 2) * (self.max_value - self.min_value - 2) # Max possible steps
             )
           ) # Flip ratio
         ) ** (1. / 2) # Square Root it
@@ -85,7 +71,7 @@ class ImaBustEnv(OneToOneEnv):
     
     # Total reward
     reward = action_reward_small_value_good
-    # reward = (action_reward_small_value_good * 0.7) + (min_steps_incentive_reward_scaled * 0.3)
+    # reward = (action_reward_small_value_good * 0.6) + (min_steps_incentive_reward_scaled * 0.4)
 
 
     # Check if cell is at winning value
@@ -100,7 +86,7 @@ class ImaBustEnv(OneToOneEnv):
 
     # Check lose condition (selecting a cell already at max value)
     if data["action_value"] >= self.max_value:
-      reward = -10.0
+      reward = -2.0
       terminated = True
 
     reward_array = np.full((self.obs_size_d1 ** 2), 0.0)

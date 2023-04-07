@@ -93,7 +93,7 @@ class Agent(object):
     self.target_net.load_state_dict(self.policy_net.state_dict())
 
     # Initialize Replay Memory size
-    self.memory = ReplayMemory(15000)
+    self.memory = ReplayMemory(10000)
 
     # Initializing variables to contain plot graph metrics
     self.episode_env_success = []
@@ -102,7 +102,7 @@ class Agent(object):
     self.episode_durations = []
 
     # Initial eps threshold
-    self.eps_threshold = 0.0
+    self.eps_threshold = 1.0
 
   # Choose either a random action, or learned action, depending on the current eps threshold
   def _select_action(self, state, env):
@@ -131,7 +131,7 @@ class Agent(object):
     plt.figure(1)
 
     # Gather metrics
-    eps_t = torch.tensor(self.episode_eps, dtype=torch.float)
+    # eps_t = torch.tensor(self.episode_eps, dtype=torch.float)
     loss_t = torch.tensor(self.episode_loss, dtype=torch.float) / 4.0
     durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
     env_success_t = torch.tensor(self.episode_env_success, dtype=torch.float)
@@ -145,7 +145,7 @@ class Agent(object):
     plt.ylabel('EPS Threshold, Loss, Duration, Env Successes')
 
     # Plot metrics
-    plt.plot(eps_t.numpy(), label="eps threshold (random or learned action taken)")
+    # plt.plot(eps_t.numpy(), label="eps threshold (random or learned action taken)")
     plt.plot(loss_t.numpy(), label="loss (how bad it is)")
     plt.plot(durations_t.numpy(), label="durations (how long each episode lasted)")
     plt.plot(env_success_t.numpy(), label="env success (how close the agent is to being done)")
@@ -182,13 +182,13 @@ class Agent(object):
 
     # Compute a mask of non-final states and concatenate the batch elements
     # (a final state would've been the one after which simulation ended)
-    # non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-    #                                     batch.next_state)), device=self.device, dtype=torch.bool)
-    # non_final_next_states = torch.cat([s for s in batch.next_state
-    #                                     if s is not None])
+    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
+                                        batch.next_state)), device=self.device, dtype=torch.bool)
+    non_final_next_states = torch.cat([s for s in batch.next_state
+                                        if s is not None])
+    
     state_batch = torch.cat(batch.state)
-    # action_batch = torch.cat(batch.action)
-    # next_state_batch = torch.cat(batch.next_state)
+    action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
 
     self.policy_net.train()
@@ -198,24 +198,20 @@ class Agent(object):
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
     action_values = self.policy_net(state_batch)
-    # action_values = self.policy_net(state_batch, action_batch)
+    # action_values += action_batch
+    # action_values = (action_values * 0.05) + (action_batch * 0.95)
+
 
     # Compute V(s_{t+1}) for all next states.
     # Expected values of actions for non_final_next_states are computed based
-    # on the "older" target_net; selecting their best reward with max(1)[0].
+    # on the "older" target_net;
     # This is merged based on the mask, such that we'll have either the expected
     # state value or 0 in case the state was final.
-    # next_action_values = torch.zeros((len(action_batch), len(action_batch[0])), device=self.device)
-
+    next_action_values = torch.zeros((len(action_batch), len(action_batch[0])), device=self.device)
     with torch.no_grad():
-      expected_action_values = (self.policy_net(state_batch) + reward_batch).softmax(dim=1)
-      # next_action_values = self.target_net(next_state_batch).detach()
-      # next_action_values[non_final_mask, :] = self.target_net(non_final_next_states).detach()
-
-    # Compute the expected Q values
-    # expected_action_values = next_action_values.argmax(1)
-    # expected_action_values = ((next_action_values * self.gamma) + reward_batch).softmax(dim=1)
-    # expected_action_values = ((next_action_values * self.gamma) + reward_batch).argmax(1)
+      next_action_values[non_final_mask, :] = self.target_net(non_final_next_states).detach()
+    
+    expected_action_values = ((next_action_values * self.gamma) + reward_batch).softmax(dim=1)
 
     # Compute loss
     loss_func_instance = self.loss_func()
@@ -225,7 +221,7 @@ class Agent(object):
     self.optimizer.zero_grad()
     loss.backward()
     # In-place gradient clipping
-    # torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 10)
+    torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 5)
     self.optimizer.step()
 
     return loss.item()
@@ -246,13 +242,13 @@ class Agent(object):
       reward = torch.tensor(reward, device=self.device).unsqueeze(0)
       done = terminated or truncated
 
-      # if terminated:
-      #   next_state = None
-      # else:
-      next_state = torch.tensor(observation, dtype=torch.int64, device=self.device).unsqueeze(0)
-      next_state = F.one_hot(next_state, num_classes=self.options_count).float()
-      B, W, H, C = next_state.shape
-      next_state = next_state.view(B, C, W, H)
+      if terminated:
+        next_state = None
+      else:
+        next_state = torch.tensor(observation, dtype=torch.int64, device=self.device).unsqueeze(0)
+        next_state = F.one_hot(next_state, num_classes=self.options_count).float()
+        B, W, H, C = next_state.shape
+        next_state = next_state.view(B, C, W, H)
 
       # Store the transition in memory
       # determin state importance, prioritize very high/low reward
