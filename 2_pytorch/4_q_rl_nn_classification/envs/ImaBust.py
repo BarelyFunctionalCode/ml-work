@@ -29,30 +29,30 @@ class ImaBustEnv(OneToOneEnv):
     # Setting initial terminal state
     terminated = False
 
-    # action_reward_small_value_good = (
-    #   (
-    #     (
-    #       (
-    #         1 -
-    #         ( # Get ratio of current value by max possible value
-    #           data["action_value"] /
-    #           self.max_value
-    #         ) # Flip ratio
-    #       ) - 0.5 # Scaled from -0.5 - 0.5 instead of 0 - 1
-    #     ) * 2 # Scaled from -1 - 1
-    #   ) * (np.mean(new_obs_flattened) / self.max_value) # Multiply by Average ratio
-    # ) + (1 - (np.mean(new_obs_flattened) / self.max_value)) # For smaller values, add a portion of the Average ratio
-
-
     action_reward_small_value_good = (
       (
-        1 -
-        ( # Get ratio of current value by max possible value
-          data["action_value"] /
-          self.max_value
-        ) # Flip ratio
-      ) - 0.5 # Scaled from -0.5 - 0.5 instead of 0 - 1
-    ) * 2 # Scaled from -1 - 1
+        (
+          (
+            1 -
+            ( # Get ratio of current value by max possible value
+              data["action_value"] /
+              self.max_value
+            ) # Flip ratio
+          ) - 0.5 # Scaled from -0.5 - 0.5 instead of 0 - 1
+        ) * 2 # Scaled from -1 - 1
+      ) * (np.mean(new_obs_flattened) / (self.max_value - 1)) # Multiply by Average ratio
+    ) + (1 - (np.mean(new_obs_flattened) / (self.max_value - 1))) # For smaller values, add a portion of the Average ratio
+
+
+    # action_reward_small_value_good = (
+    #   (
+    #     1 -
+    #     ( # Get ratio of current value by max possible value
+    #       data["action_value"] /
+    #       self.max_value
+    #     ) # Flip ratio
+    #   ) - 0.5 # Scaled from -0.5 - 0.5 instead of 0 - 1
+    # ) * 2 # Scaled from -1 - 1
 
     min_steps_incentive_reward_scaled = (
       (
@@ -68,6 +68,14 @@ class ImaBustEnv(OneToOneEnv):
       ) - 0.5 # Scaled from -0.5 - 0.5 instead of 0 - 1
     ) * 2 # Scaled from -1 - 1
 
+
+
+    # more_steps_more_reward = (
+    #   self.steps / # Current steps
+    #   (
+    #     (self.obs_size_d1 ** 2) * (self.max_value - self.min_value - 2) # Max possible steps
+    #   )
+    # )
     
     # Total reward
     reward = action_reward_small_value_good
@@ -95,7 +103,7 @@ class ImaBustEnv(OneToOneEnv):
     # print("Reward:" + str(reward) + " | Action: " + str(data["action_row"]) + ", " + str(data["action_col"]) + " | Value: " + str(data["action_value"]) + " | Steps: " + str(self.steps) + " | Wins: " + str(self.wins))
     # print("action_reward_small_value_good: " + str(action_reward_small_value_good) + " min_steps_incentive_reward_scaled:" + str(min_steps_incentive_reward_scaled) + " | Action: " + str(data["action_row"]) + ", " + str(data["action_col"]) + " | Value: " + str(data["action_value"]) + " | Steps: " + str(self.steps) + " | Wins: " + str(self.wins))
 
-    return new_obs, reward_array, terminated
+    return new_obs, reward, terminated
 
   # Stop training if desired amount of wins have been achieved
   def get_success_count(self):

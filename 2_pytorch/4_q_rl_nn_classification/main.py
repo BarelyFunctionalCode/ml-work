@@ -4,8 +4,6 @@ os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 import torch
 import torch.nn as nn
 
-import math
-
 from envs.ImaBust import ImaBustEnv
 from agent import Agent
 from test_games.ImaBust import ImaBust
@@ -14,15 +12,15 @@ from test_games.ImaBust import ImaBust
 
 # model hyperparameters
 b_load_saved_agent = False           # Load previously trained agent
-batch_size = 1000                    # Random sample size from replay memory when optimizing policy
-num_episodes = 20000                 # Max episodes for training
-success_threshold = 20               # Metric to determine solved model and end training early i.e game wins
-state_size_1d = 4                    # 1D size of state used for env and agent
-loss_func = nn.CrossEntropyLoss      # Loss function used in agent's model optimization
+batch_size = 8192                    # Random sample size from replay memory when optimizing policy
+num_episodes = 40000                 # Max episodes for training
+success_threshold = 30               # Metric to determine solved model and end training early i.e game wins
+state_size_1d = 8                    # 1D size of state used for env and agent
+loss_func = nn.SmoothL1Loss()        # Loss function used in agent's model optimization
 optimizer_option = torch.optim.AdamW # Optimizer used in agent's model optimization
-learning_rate = 1e-2                 # Optimizer's learning rate
+learning_rate = 1e-4                 # Optimizer's learning rate
 gamma = 0.99                         # Discount future action reward factor
-eps_decay = 0.9994                   # Decay rate of whether to choose a random action or learned action
+eps_decay = 0.9996                   # Decay rate of whether to choose a random action or learned action
 tau = 0.001                          # Soft update ratio from policy network to fixed target network
 
 
@@ -48,7 +46,7 @@ env = ImaBustEnv(state_size_1d, min_value, max_value, program_interface)
 
 # Initialize agent
 print("Initializing Agent...")
-estimate_max_duration = (state_size_1d ** 2) * (max_value - min_value)
+estimate_max_duration = (state_size_1d ** 2) * (max_value - min_value - 2)
 agent = Agent(
       b_load_saved_agent,
       state_size_1d,

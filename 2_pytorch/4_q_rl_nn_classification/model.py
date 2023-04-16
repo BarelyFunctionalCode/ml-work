@@ -15,24 +15,32 @@ class CNN(nn.Module):
   # s is the stride, s = 0
   def __init__(self, state_size_1d, options_count):
     super().__init__()
-    self.kernal_size = 3
-    self.out_channels = 20
+    self.conv_kernal_size = 3
+    self.max_pool_kernal_size = 2
+    self.out_channels = 32
     self.hidden_layer_ratio = 5
-    self.conv_output_size = ((state_size_1d - self.kernal_size + 1) ** 2) * self.out_channels
-    self.hidden_layer_size = self.conv_output_size * self.hidden_layer_ratio
+    
+    self.conv_output_size = (state_size_1d - 1 * (self.conv_kernal_size - 1) - 1) + 1
+    self.max_pool_output_size = ((self.conv_output_size - 1 * (self.max_pool_kernal_size - 1) - 1) // self.max_pool_kernal_size) + 1
+    # self.flattened_size = (self.max_pool_output_size ** 2) * self.out_channels
+    self.flattened_size = (self.conv_output_size ** 2) * self.out_channels
+
+    self.hidden_layer_size = self.flattened_size * self.hidden_layer_ratio
     self.output_size = state_size_1d ** 2
 
-    self.cnn1 = nn.Conv2d(options_count, self.out_channels, self.kernal_size)
+    self.conv1 = nn.Conv2d(options_count, self.out_channels, self.conv_kernal_size)
     self.flatten = nn.Flatten()
-    self.fc1 = nn.Linear(self.conv_output_size, self.hidden_layer_size)
+    self.fc1 = nn.Linear(self.flattened_size, self.hidden_layer_size)
+    # self.fc2 = nn.Linear(self.hidden_layer_size // 2, self.hidden_layer_size)
     self.fc2 = nn.Linear(self.hidden_layer_size, self.output_size)
 
   def forward(self, x):
-    x = F.relu(self.cnn1(x))
+    x = F.relu(self.conv1(x))
+    # x = F.max_pool2d(F.relu(self.conv1(x)), self.max_pool_kernal_size)
     x = self.flatten(x)
     x = F.relu(self.fc1(x))
+    # x = F.relu(self.fc2(x))
     x = self.fc2(x)
-    # x = F.log_softmax(x, dim=1)
     return x
 
 # Used to create model with desired parameters

@@ -23,9 +23,19 @@ class ReplayMemory(object):
   def __init__(self, capacity):
     self.memory = deque([], maxlen=capacity)
 
+  def delete_nth(self, n):
+    self.memory.rotate(-n)
+    self.memory.popleft()
+    self.memory.rotate(n)
+
   def push(self, *args):
     """Save a transition"""
-    # if len(self.memory) % 1000 == 0: print(f"Replay Memory Size: {len(self.memory)}")
+    if len(self.memory) == self.memory.maxlen:
+      # random index of memory on a normal distribution
+      index = int(random.normalvariate((len(self.memory) - 1) / 2, len(self.memory) / 6) + 0.5)
+      if index < 0: index = 0
+      if index >= len(self.memory): index = len(self.memory) - 1
+      self.delete_nth(index)
     self.memory.append(Transition(*args))
 
   def sample(self, batch_size):
@@ -99,42 +109,39 @@ class Agent(object):
     self.episode_env_success = []
     self.episode_eps = []
     self.episode_loss = []
+    self.episode_reward = []
     self.episode_durations = []
 
     # Initial eps threshold
     self.eps_threshold = 1.0
 
   # Choose either a random action, or learned action, depending on the current eps threshold
-  def _select_action(self, state, env):
-    # sample = random.random()
+  def _select_action(self, state):
+    sample = random.random()
     
-    # self.eps_threshold = max(self.eps_threshold * self.eps_decay, 0.05)
-    # if sample > self.eps_threshold:
-    self.policy_net.eval()
-    with torch.no_grad():
-      action_values = self.policy_net(state)
-    self.policy_net.train()
-    # print(f"learned action_values: {action_values}")
-    return action_values
-    # else:
-    #   action_values = torch.tensor(np.array([env.action_space.sample()]), device=self.device, dtype=torch.float32)
-    #   # action_values_softmax = F.log_softmax(action_values, dim=1)
-    #   # state = torch.tensor(env.observation_space.sample(), dtype=torch.int64, device=self.device).unsqueeze(0)
-    #   # state = F.one_hot(state, num_classes=self.options_count).float()
-    #   # B, W, H, C = state.shape
-    #   # state = state.view(B, C, W, H)
-    #   # action_values = self.policy_net(state).detach()
-    #   return action_values
+    self.eps_threshold = max(self.eps_threshold * self.eps_decay, 0.01)
+    if sample > self.eps_threshold:
+      # Get learned action with a probability of 1 - eps_threshold
+      self.policy_net.eval()
+      with torch.no_grad():
+        action_values = self.policy_net(state).detach()
+      self.policy_net.train()
+      action = action_values.argmax(dim=1).unsqueeze(0)
+    else:
+      # Get random action with a probability of eps_threshold
+      action = torch.tensor(np.array([random.randrange(self.state_size_1d ** 2)]), device=self.device, dtype=torch.int64).unsqueeze(0)
+    return action
 
   # Plot metrics relevent to the agent and env onto a graph for analysis
   def _plot_data(self, show_result=False):
     plt.figure(1)
 
     # Gather metrics
-    # eps_t = torch.tensor(self.episode_eps, dtype=torch.float)
-    loss_t = torch.tensor(self.episode_loss, dtype=torch.float) / 4.0
-    durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
+    eps_t = torch.tensor(self.episode_eps, dtype=torch.float)
     env_success_t = torch.tensor(self.episode_env_success, dtype=torch.float)
+    loss_t = torch.tensor(self.episode_loss, dtype=torch.float) / np.array(self.episode_loss).max()
+    reward_t = torch.tensor(self.episode_reward, dtype=torch.float) / np.array(self.episode_reward).max()
+    durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
 
     plt.clf()
     if show_result:
@@ -145,20 +152,26 @@ class Agent(object):
     plt.ylabel('EPS Threshold, Loss, Duration, Env Successes')
 
     # Plot metrics
-    # plt.plot(eps_t.numpy(), label="eps threshold (random or learned action taken)")
-    plt.plot(loss_t.numpy(), label="loss (how bad it is)")
-    plt.plot(durations_t.numpy(), label="durations (how long each episode lasted)")
-    plt.plot(env_success_t.numpy(), label="env success (how close the agent is to being done)")
+    plt.plot(eps_t.numpy(), label="eps threshold (random or learned action taken)", color="blue")
+    plt.plot(env_success_t.numpy(), label="env success (how close the agent is to being done)", color="orange")
+    plt.plot(loss_t.numpy(), color="red", alpha=0.2)
+    plt.plot(reward_t.numpy(), color="green", alpha=0.2)
+    plt.plot(durations_t.numpy(), color="purple", alpha=0.2)
 
-    # Take 100 episode averages and plot them too
-    if len(loss_t) >= 100:
-      l_means = loss_t.unfold(0, 100, 1).mean(1).view(-1)
-      l_means = torch.cat((torch.zeros(99), l_means))
-      plt.plot(l_means.numpy(), label="loss avg")
-    if len(durations_t) >= 100:
-      d_means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-      d_means = torch.cat((torch.zeros(99), d_means))
-      plt.plot(d_means.numpy(), label="duration avg")
+    # Take episode averages and plot them too
+    plot_averages_start = 300
+    if len(loss_t) >= plot_averages_start:
+      l_means = loss_t.unfold(0, plot_averages_start, 1).mean(1).view(-1)
+      l_means = torch.cat((loss_t[0:plot_averages_start], l_means))
+      plt.plot(l_means.numpy(), label="loss avg (how bad it is)", color="red")
+    if len(reward_t) >= plot_averages_start:
+      r_means = reward_t.unfold(0, plot_averages_start, 1).mean(1).view(-1)
+      r_means = torch.cat((reward_t[0:plot_averages_start], r_means))
+      plt.plot(r_means.numpy(), label="reward avg (how good it is)", color="green")
+    if len(durations_t) >= plot_averages_start:
+      d_means = durations_t.unfold(0, plot_averages_start, 1).mean(1).view(-1)
+      d_means = torch.cat((durations_t[0:plot_averages_start], d_means))
+      plt.plot(d_means.numpy(), label="duration avg (how long each episode lasted)", color="purple")
 
 
     time.sleep(0.001)  # pause a bit so that plots are updated
@@ -171,13 +184,10 @@ class Agent(object):
         display.display(plt.gcf())
 
   # After enough transitions are collected in the Replay Memory, optimize the policy
-  def _optimize_model(self, env):
+  def _optimize_model(self):
     if len(self.memory) < self.batch_size:
       return
     transitions = self.memory.sample(self.batch_size)
-    # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-    # detailed explanation). This converts batch-array of Transitions
-    # to Transition of batch-arrays.
     batch = Transition(*zip(*transitions))
 
     # Compute a mask of non-final states and concatenate the batch elements
@@ -197,9 +207,7 @@ class Agent(object):
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
-    action_values = self.policy_net(state_batch)
-    # action_values += action_batch
-    # action_values = (action_values * 0.05) + (action_batch * 0.95)
+    action_values = self.policy_net(state_batch).gather(1, action_batch)
 
 
     # Compute V(s_{t+1}) for all next states.
@@ -207,21 +215,20 @@ class Agent(object):
     # on the "older" target_net;
     # This is merged based on the mask, such that we'll have either the expected
     # state value or 0 in case the state was final.
-    next_action_values = torch.zeros((len(action_batch), len(action_batch[0])), device=self.device)
+    next_action_values = torch.zeros((self.batch_size, self.state_size_1d ** 2), device=self.device)
     with torch.no_grad():
       next_action_values[non_final_mask, :] = self.target_net(non_final_next_states).detach()
     
-    expected_action_values = ((next_action_values * self.gamma) + reward_batch).softmax(dim=1)
-
+    expected_action_values = ((next_action_values.max(1)[0] * self.gamma) + reward_batch).unsqueeze(1)
     # Compute loss
-    loss_func_instance = self.loss_func()
-    loss = loss_func_instance(action_values, expected_action_values)
+    # loss_func_instance = self.loss_func()
+    loss = self.loss_func(action_values, expected_action_values)
 
     # Optimize the model
     self.optimizer.zero_grad()
     loss.backward()
     # In-place gradient clipping
-    torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 5)
+    torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 5.0)
     self.optimizer.step()
 
     return loss.item()
@@ -236,33 +243,32 @@ class Agent(object):
     state = state.view(B, C, W, H)
 
     # Loop training until env terminal state is reached, then optimize policy model and soft update target model
+    total_loss = 0
+    total_reward = 0
     for t in count():
-      action = self._select_action(state, env)
-      observation, reward, terminated, truncated = env.step(action.argmax(1).item())
+      action = self._select_action(state)
+      observations, reward, terminated, truncated = env.step(action.item())
+      total_reward += reward
       reward = torch.tensor(reward, device=self.device).unsqueeze(0)
       done = terminated or truncated
 
       if terminated:
         next_state = None
       else:
-        next_state = torch.tensor(observation, dtype=torch.int64, device=self.device).unsqueeze(0)
+        next_state = torch.tensor(observations, dtype=torch.int64, device=self.device).unsqueeze(0)
         next_state = F.one_hot(next_state, num_classes=self.options_count).float()
         B, W, H, C = next_state.shape
         next_state = next_state.view(B, C, W, H)
 
       # Store the transition in memory
-      # determin state importance, prioritize very high/low reward
-          # abs([-0.1 - 1.1] - 0.5) * 2 = [0.0 - 1.2]
-          # random.uniform(-0.5, 1) = [-0.5 - 1.0]
-          # Gets all of the terminal states, and most of the middle transitions (about 60%)
-      # if (abs(reward - 0.5) * 2) >= random.uniform(-0.5, 1):
       self.memory.push(state, action, next_state, reward)
 
       # Move to the next state
       state = next_state
 
       # Perform one step of the optimization (on the policy network)
-      loss = self._optimize_model(env)
+      loss = self._optimize_model()
+      total_loss += loss if loss is not None else 0
 
       # Soft update of the target network's weights
       # θ′ ← τ θ + (1 −τ )θ′
@@ -276,7 +282,8 @@ class Agent(object):
       if done:
         self.episode_env_success.append(env.get_success_count() / self.success_threshold)
         self.episode_eps.append(min(self.eps_threshold, 1))
-        self.episode_loss.append(loss if loss != None else 0)
+        self.episode_loss.append(total_loss/t)
+        self.episode_reward.append(total_reward)
         self.episode_durations.append((t + 1) / self.estimate_max_duration)
         self._plot_data()
         break

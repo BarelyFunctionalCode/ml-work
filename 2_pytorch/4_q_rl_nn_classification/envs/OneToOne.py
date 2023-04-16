@@ -16,7 +16,7 @@ class OneToOneEnv(gym.Env):
     # Observations are values of all the cells on the board
     self.observation_space = spaces.Box(self.min_value, self.max_value, shape=(self.obs_size_d1, self.obs_size_d1), dtype=int)
 
-    self.action_space = spaces.Box(-2, 2, shape=(self.obs_size_d1 ** 2,), dtype=np.float32)
+    self.action_space = spaces.Box(-1, 1, shape=(self.obs_size_d1 ** 2,), dtype=np.float32)
 
   
   # Restart the program upon env reset (on terminal state)
